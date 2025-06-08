@@ -1,0 +1,98 @@
+Automated Cost Optimization – Use AWS Lambda to detect and stop unused EC2 instances. 
+Automated Cost Optimization using AWS Lambda 
+
+Introduction 
+AWS Lambda can be used to detect and stop unused EC2 instances to optimize 
+cloud costs. By leveraging AWS services like CloudWatch, Lambda, and AWS 
+SDK (Boto3), we can automate the process of monitoring EC2 instance usage and 
+shutting down idle instances. This project helps reduce unnecessary cloud expenses 
+by identifying instances with low CPU utilization over a defined period. 
+
+
+Steps to Implement the Project :
+1. Prerequisites 
+● AWS account with necessary IAM permissions 
+● Amazon EC2 instances running 
+● AWS CloudWatch enabled for EC2 instances 
+● AWS Lambda function with execution role 
+
+
+2. Create an IAM Role for Lambda 
+1. Go to AWS IAM Console → Roles → Create role 
+2. Select AWS Service → Choose Lambda 
+
+
+3. Attach policies: 
+○ AmazonEC2ReadOnlyAccess (to fetch EC2 usage details) 
+○ AWSLambdaBasicExecutionRole (to allow logging) 
+○ AmazonEC2FullAccess (to stop EC2 instances)
+
+
+4. Create the role and note down the ARN 
+. Create a CloudWatch Alarm to Monitor EC2 Usage 
+. Go to CloudWatch → Alarms → Create Alarm 
+. Select EC2 Metrics → CPUUtilization 
+. Set a condition: 
+○ If CPU Utilization < 5% for 1 hour 
+4. Choose SNS Topic (Create one if needed) 
+
+5. Configure the SNS topic to trigger the Lambda function 
+. Create AWS Lambda Function to Stop Unused Instances 
+. Go to AWS Lambda → Create function 
+. Select Author from scratch 
+. Choose Python 3.x as the runtime 
+. Assign the IAM role created earlier 
+. Add the following Python code: 
+python 
+ 
+import boto3 
+ 
+def lambda_handler(event, context): 
+    ec2 = boto3.client('ec2') 
+    cloudwatch = boto3.client('cloudwatch') 
+ 
+    # Get all running instances 
+    instances = ec2.describe_instances(Filters=[{'Name': 'instance-state-name', 
+'Values': ['running']}]) 
+ 
+    for reservation in instances['Reservations']: 
+        for instance in reservation['Instances']: 
+            instance_id = instance['InstanceId'] 
+             
+            # Get CPU utilization metrics 
+            metrics = cloudwatch.get_metric_statistics( 
+                Period=3600, 
+                StartTime=datetime.utcnow() - timedelta(hours=1), 
+                EndTime=datetime.utcnow(), 
+                MetricName='CPUUtilization', 
+                Namespace='AWS/EC2', 
+                Statistics=['Average'], 
+                Dimensions=[{'Name': 'InstanceId', 'Value': instance_id}] 
+            ) 
+             
+            if metrics['Datapoints']: 
+                avg_cpu = metrics['Datapoints'][0]['Average'] 
+                if avg_cpu < 5.0:  # Stop instance if CPU usage is low 
+                    ec2.stop_instances(InstanceIds=[instance_id]) 
+                    print(f"Stopped instance: {instance_id}") 
+ 
+    return "EC2 Optimization Completed" 
+ 
+5. Configure Lambda Trigger 
+1. In AWS Lambda, go to the created function 
+2. Click Add Trigger → Choose CloudWatch Events 
+3. Select the SNS topic created in Step 3 
+4. Save and deploy the function 
+ 
+6. Testing the Setup 
+1. Manually lower the CPU usage of an EC2 instance 
+2. Wait for CloudWatch alarm to trigger the Lambda function 
+3. Check EC2 instance state after execution 
+7. Monitor and Improve 
+● Use CloudWatch Logs to debug errors 
+● Modify the CPU threshold based on business needs 
+● Extend functionality by sending notifications when instances are stopped 
+Conclusion 
+This AWS Lambda-based automation helps in cost optimization by detecting and 
+stopping idle EC2 instances. It reduces unnecessary expenses and ensures better 
+resource management.
